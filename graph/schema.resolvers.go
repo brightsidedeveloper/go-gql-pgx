@@ -11,6 +11,17 @@ import (
 	"github.com/brightsidedeveloper/go-gql-pgx/graph/model"
 )
 
+// CreateUser is the resolver for the createUser field.
+func (r *mutationResolver) CreateUser(ctx context.Context, name string) (*model.User, error) {
+	var user model.User
+	err := r.DB.QueryRow(ctx, "INSERT INTO users (name) VALUES ($1) returning id, name", name).Scan(&user.ID, &user.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
 // Viewer is the resolver for the viewer field.
 func (r *queryResolver) Viewer(ctx context.Context) (*model.Viewer, error) {
 	return &model.Viewer{}, nil
@@ -18,13 +29,27 @@ func (r *queryResolver) Viewer(ctx context.Context) (*model.Viewer, error) {
 
 // Users is the resolver for the users field.
 func (r *viewerResolver) Users(ctx context.Context, obj *model.Viewer) ([]*model.User, error) {
-	return []*model.User{
-		{
-			ID:   "1",
-			Name: "John Doe",
-		},
-	}, nil
+	rows, err := r.DB.Query(ctx, "SELECT id, name FROM users")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	users := []*model.User{}
+	for rows.Next() {
+		var user model.User
+		err := rows.Scan(&user.ID, &user.Name)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, &user)
+	}
+
+	return users, nil
 }
+
+// Mutation returns MutationResolver implementation.
+func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
@@ -32,5 +57,6 @@ func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 // Viewer returns ViewerResolver implementation.
 func (r *Resolver) Viewer() ViewerResolver { return &viewerResolver{r} }
 
+type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type viewerResolver struct{ *Resolver }
