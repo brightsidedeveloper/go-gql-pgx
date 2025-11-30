@@ -1,0 +1,12 @@
+type Query {
+  viewer: Viewer!
+}
+
+type Viewer {
+  users: [User!]!
+}
+
+type User {
+  id: ID!
+  name: String!
+}
